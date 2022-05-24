@@ -1,23 +1,40 @@
+import argparse
+import glob, os
+import time
+from pathlib import Path
+from PIL import Image
+
 import torch
-import gradio as gr
 import numpy as np
 import torchvision.transforms as transforms
-
-
 from torch.autograd import Variable
 from network.Transformer import Transformer
 from huggingface_hub import hf_hub_download
-
-from PIL import Image
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def parse_args():
+    desc = "CartoonGAN CLI by soulteary"
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument('--input', type=str, default='./images', help='images directory')
+    parser.add_argument('--output', type=str, default='./result/', help='output path')
+    parser.add_argument('--resize', type=int, default=0,
+                        help='Do you need a program to adjust the image size?')
+    parser.add_argument('--maxsize', type=int, default=0,
+                        help='your desired image output size')
+    """
+    If you want to resize, you need to specify both --resize and --maxsize
+    """
+    return parser.parse_args()
+
+def prepare_dirs(path):
+    Path(path).mkdir(parents=True, exist_ok=True)
+
 # Constants
 
-MAX_DIMENSION = 1280
 MODEL_PATH = "models"
 COLOUR_MODEL = "RGB"
 
@@ -104,17 +121,7 @@ def get_model(style):
         return shinkai_model
 
 
-def adjust_image_for_model(img):
-    logger.info(f"Image Height: {img.height}, Image Width: {img.width}")
-    if img.height > MAX_DIMENSION or img.width > MAX_DIMENSION:
-        logger.info(f"Dimensions too large. Resizing to {MAX_DIMENSION}px.")
-        img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.Resampling.LANCZOS)
-
-    return img
-
-
 def inference(img, style):
-    img = adjust_image_for_model(img)
 
     # load image
     input_image = img.convert(COLOUR_MODEL)
@@ -144,39 +151,26 @@ def inference(img, style):
     return transforms.ToPILImage()(output_image)
 
 
-# Gradio setup
 
-title = "Anime Background GAN"
-description = "Gradio Demo for CartoonGAN by Chen Et. Al. Models are Shinkai Makoto, Hosoda Mamoru, Kon Satoshi, and Miyazaki Hayao."
-article = "<p style='text-align: center'><a href='http://openaccess.thecvf.com/content_cvpr_2018/CameraReady/2205.pdf' target='_blank'>CartoonGAN Whitepaper from Chen et.al</a></p><p style='text-align: center'><a href='https://github.com/venture-anime/cartoongan-pytorch' target='_blank'>Github Repo</a></p><p style='text-align: center'><a href='https://github.com/Yijunmaverick/CartoonGAN-Test-Pytorch-Torch' target='_blank'>Original Implementation from Yijunmaverick</a></p><center><img src='https://visitor-badge.glitch.me/badge?page_id=akiyamasho' alt='visitor badge'></center></p>"
+if __name__ == '__main__':
+    arg = parse_args()
+    prepare_dirs(arg.output)
 
-examples = [
-    ["examples/garden_in.jpg", STYLE_SHINKAI],
-    ["examples/library_in.jpg", STYLE_KON],
-]
+    enable_resize = False
+    max_dimensions = -1
+    if arg.maxsize > 0:
+        max_dimensions = arg.maxsize
+        if arg.resize :
+            enable_resize = True
 
+    globPattern = arg.output + "/*.png"
+    for filePath in glob.glob(globPattern):
+        basename = os.path.basename(filePath)
+        with Image.open(filePath) as img:
 
-gr.Interface(
-    fn=inference,
-    inputs=[
-        gr.inputs.Image(
-            type="pil",
-            label="Input Photo (less than 1280px on both width and height)",
-        ),
-        gr.inputs.Dropdown(
-            STYLE_CHOICE_LIST,
-            type="value",
-            default=DEFAULT_STYLE,
-            label="Style",
-        ),
-    ],
-    outputs=gr.outputs.Image(
-        type="pil",
-        label="Output Image",
-    ),
-    title=title,
-    description=description,
-    article=article,
-    examples=examples,
-    allow_flagging="never",
-).launch(enable_queue=True)
+            if(enable_resize):
+                img.thumbnail((max_dimensions, max_dimensions), Image.Resampling.LANCZOS)
+
+            start_time = time.time()
+            inference(img).save("./result/" + basename, "PNG")
+            print("--- %s seconds ---" % (time.time() - start_time))
