@@ -48,11 +48,7 @@ if enable_gpu:
 else:
     device = "cpu"
 
-
-model = Transformer()
-
 def get_model(style):
-
     # Makoto Shinkai
     if style == "Shinkai":
         MODEL_REPO_SHINKAI = "akiyamasho/AnimeBackgroundGAN-Shinkai"
@@ -74,13 +70,14 @@ def get_model(style):
         MODEL_FILE_KON = "kon_satoshi.pth"
         model_hfhub = hf_hub_download(repo_id=MODEL_REPO_KON, filename=MODEL_FILE_KON)
 
+    model = Transformer()
     model.load_state_dict(torch.load(model_hfhub, device))
     if enable_gpu:
         model = model.to(device)
     model.eval()
     return model
 
-def inference(img):
+def inference(img, model):
     # load image
     input_image = img.convert("RGB")
     input_image = np.asarray(input_image)
@@ -108,26 +105,25 @@ def inference(img):
     return transforms.ToPILImage()(output_image)
 
 
-if __name__ == '__main__':
-    prepare_dirs(arg.output)
+prepare_dirs(arg.output)
 
-    model = get_model(arg.model)
+model = get_model(arg.model)
 
-    enable_resize = False
-    max_dimensions = -1
-    if arg.maxsize > 0:
-        max_dimensions = arg.maxsize
-        if arg.resize :
-            enable_resize = True
+enable_resize = False
+max_dimensions = -1
+if arg.maxsize > 0:
+    max_dimensions = arg.maxsize
+    if arg.resize :
+        enable_resize = True
 
-    globPattern = arg.output + "/*.png"
+globPattern = arg.input + "/*.png"
 
-    for filePath in glob.glob(globPattern):
-        basename = os.path.basename(filePath)
-        with Image.open(filePath) as img:
-            if(enable_resize):
-                img.thumbnail((max_dimensions, max_dimensions), Image.Resampling.LANCZOS)
+for filePath in glob.glob(globPattern):
+    basename = os.path.basename(filePath)
+    with Image.open(filePath) as img:
+        if(enable_resize):
+            img.thumbnail((max_dimensions, max_dimensions), Image.Resampling.LANCZOS)
 
-            start_time = time.time()
-            inference(img).save(arg.output + "/" + basename, "PNG")
-            print("--- %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
+        inference(img, model).save(arg.output + "/" + basename, "PNG")
+        print("--- %s seconds ---" % (time.time() - start_time))
