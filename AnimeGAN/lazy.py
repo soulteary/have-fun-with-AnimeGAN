@@ -2,9 +2,9 @@ import argparse
 import towhee
 
 def parse_args():
-    desc = "CartoonGAN CLI by soulteary"
+    desc = "AnimeGAN CLI by soulteary"
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('--model', type=str, default='Shinkai', help='Shinkai / Hosoda / Miyazaki / Kon')
+    parser.add_argument('--model', type=str, default='Shinkai', help='origin / facepaintv2 / hayao / paprika / shinkai')
     parser.add_argument('--device', type=str, default='cpu', help='cpu / cuda')
     parser.add_argument('--input', type=str, default='./images', help='images directory')
     parser.add_argument('--output', type=str, default='./result/', help='output path')
@@ -17,6 +17,6 @@ arg = parse_args()
 towhee.glob['path'](arg.input + "/*.png") \
     .set_parallel(5) \
     .image_decode['path', 'img']() \
-    .img2img_translation.cartoongan['img', 'new_img'](model_name = arg.model, device=arg.device) \
+    .img2img_translation.animegan['img', 'new_img'](model_name = arg.model, device=arg.device) \
     .save_image[('new_img', 'path'), 'new_path'](dir=arg.output + "/", format="png") \
     .to_list()
