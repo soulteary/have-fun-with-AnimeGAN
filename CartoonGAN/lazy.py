@@ -17,4 +17,5 @@ towhee.glob(arg.input + "/*.png") \
     .set_parallel(5) \
     .image_decode() \
     .img2img_translation.cartoongan(model_name = arg.model) \
-    .save_image(dir=arg.output + "/")
+    .save_image(dir=arg.output + "/") \
+    .to_list()
